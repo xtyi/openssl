@@ -155,7 +155,7 @@ static int x9_62_tests(int n)
         goto err;
 
     /* compare the created signature with the expected signature */
-    ECDSA_SIG_get0(signature, &sig_r, &sig_s);
+    ECDSA_SIG_get0(signature, &sig_r, &sig_s, NULL);
     if (!TEST_BN_eq(sig_r, r)
         || !TEST_BN_eq(sig_s, s))
         goto err;

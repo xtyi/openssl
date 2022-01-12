@@ -639,6 +639,7 @@ int ecdh_simple_compute_key(unsigned char **pout, size_t *poutlen,
 struct ECDSA_SIG_st {
     BIGNUM *r;
     BIGNUM *s;
+    uint8_t v;
 };
 
 int ossl_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in, BIGNUM **kinvp,

@@ -1268,12 +1268,14 @@ void ECDSA_SIG_free(ECDSA_SIG *sig)
     OPENSSL_free(sig);
 }
 
-void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
+void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps, uint8_t* pv)
 {
     if (pr != NULL)
         *pr = sig->r;
     if (ps != NULL)
         *ps = sig->s;
+    if (pv != NULL)
+        *pv = sig->v;
 }
 
 const BIGNUM *ECDSA_SIG_get0_r(const ECDSA_SIG *sig)
@@ -1284,6 +1286,11 @@ const BIGNUM *ECDSA_SIG_get0_r(const ECDSA_SIG *sig)
 const BIGNUM *ECDSA_SIG_get0_s(const ECDSA_SIG *sig)
 {
     return sig->s;
+}
+
+uint8_t ECDSA_SIG_get0_v(const ECDSA_SIG *sig)
+{
+    return sig->v;
 }
 
 int ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)

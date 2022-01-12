@@ -30,12 +30,13 @@ int ossl_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     return 1;
 }
 
+// 生成 k, R(x, y)
 static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
-                            BIGNUM **kinvp, BIGNUM **rp,
+                            BIGNUM **kinvp, BIGNUM **rp, uint8_t* vp,
                             const unsigned char *dgst, int dlen)
 {
     BN_CTX *ctx = NULL;
-    BIGNUM *k = NULL, *r = NULL, *X = NULL;
+    BIGNUM *k = NULL, *r = NULL, *X = NULL, *Y = NULL;
     const BIGNUM *order;
     EC_POINT *tmp_point = NULL;
     const EC_GROUP *group;
@@ -67,7 +68,8 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     k = BN_new();               /* this value is later returned in *kinvp */
     r = BN_new();               /* this value is later returned in *rp */
     X = BN_new();
-    if (k == NULL || r == NULL || X == NULL) {
+    Y = BN_new();
+    if (k == NULL || r == NULL || X == NULL || Y == NULL) {
         ECerr(EC_F_ECDSA_SIGN_SETUP, ERR_R_MALLOC_FAILURE);
         goto err;
     }
@@ -81,7 +83,8 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     order_bits = BN_num_bits(order);
     if (!BN_set_bit(k, order_bits)
         || !BN_set_bit(r, order_bits)
-        || !BN_set_bit(X, order_bits))
+        || !BN_set_bit(X, order_bits)
+        || !BN_set_bit(Y, order_bits))
         goto err;
 
     do {
@@ -109,7 +112,7 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
             goto err;
         }
 
-        if (!EC_POINT_get_affine_coordinates(group, tmp_point, X, NULL, ctx)) {
+        if (!EC_POINT_get_affine_coordinates(group, tmp_point, X, Y, ctx)) {
             ECerr(EC_F_ECDSA_SIGN_SETUP, ERR_R_EC_LIB);
             goto err;
         }
@@ -132,6 +135,9 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     /* save the pre-computed values  */
     *rp = r;
     *kinvp = k;
+    if (vp != NULL) {
+        *vp = BN_is_odd(Y);
+    }
     ret = 1;
  err:
     if (!ret) {
@@ -148,7 +154,7 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
 int ossl_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in, BIGNUM **kinvp,
                           BIGNUM **rp)
 {
-    return ecdsa_sign_setup(eckey, ctx_in, kinvp, rp, NULL, 0);
+    return ecdsa_sign_setup(eckey, ctx_in, kinvp, rp, NULL, NULL, 0);
 }
 
 ECDSA_SIG *ossl_ecdsa_sign_sig(const unsigned char *dgst, int dgst_len,
@@ -162,6 +168,7 @@ ECDSA_SIG *ossl_ecdsa_sign_sig(const unsigned char *dgst, int dgst_len,
     const EC_GROUP *group;
     ECDSA_SIG *ret;
     const BIGNUM *priv_key;
+    uint8_t v;
 
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
@@ -217,7 +224,7 @@ ECDSA_SIG *ossl_ecdsa_sign_sig(const unsigned char *dgst, int dgst_len,
     }
     do {
         if (in_kinv == NULL || in_r == NULL) {
-            if (!ecdsa_sign_setup(eckey, ctx, &kinv, &ret->r, dgst, dgst_len)) {
+            if (!ecdsa_sign_setup(eckey, ctx, &kinv, &ret->r, &v, dgst, dgst_len)) {
                 ECerr(EC_F_OSSL_ECDSA_SIGN_SIG, ERR_R_ECDSA_LIB);
                 goto err;
             }
@@ -270,6 +277,16 @@ ECDSA_SIG *ossl_ecdsa_sign_sig(const unsigned char *dgst, int dgst_len,
             break;
         }
     } while (1);
+
+    ret->v = v;
+
+    BIGNUM* nh = BN_new();
+    BN_rshift1(nh, order);
+
+    if (BN_cmp(s, nh) > 0) {
+        BN_sub(s, order, s);
+        ret->v ^= 1;
+    }
 
     ok = 1;
  err:

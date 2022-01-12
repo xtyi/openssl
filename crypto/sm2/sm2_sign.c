@@ -321,7 +321,7 @@ static int sm2_sig_verify(const EC_KEY *key, const ECDSA_SIG *sig,
      * B7: calculate R=(e'+x1') modn, verification pass if yes, otherwise failed
      */
 
-    ECDSA_SIG_get0(sig, &r, &s);
+    ECDSA_SIG_get0(sig, &r, &s, NULL);
 
     if (BN_cmp(r, BN_value_one()) < 0
             || BN_cmp(s, BN_value_one()) < 0

@@ -302,7 +302,7 @@ static int test_sm2_sign(const EC_GROUP *group,
     }
     restore_rand();
 
-    ECDSA_SIG_get0(sig, &sig_r, &sig_s);
+    ECDSA_SIG_get0(sig, &sig_r, &sig_s, NULL);
 
     if (!TEST_true(BN_hex2bn(&r, r_hex))
             || !TEST_true(BN_hex2bn(&s, s_hex))
